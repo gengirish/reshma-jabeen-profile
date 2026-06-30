@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No messages provided." }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
+    const apiKey = (process.env.NIM_API_KEY || process.env.OPENROUTER_API_KEY || "").trim();
     if (!apiKey) {
       return NextResponse.json({
         reply:
@@ -148,14 +148,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    // NVIDIA NIM exposes an OpenAI-compatible Chat Completions endpoint.
+    const useNim = Boolean(process.env.NIM_API_KEY);
+    const endpoint = useNim
+      ? "https://integrate.api.nvidia.com/v1/chat/completions"
+      : "https://openrouter.ai/api/v1/chat/completions";
+    const model = useNim
+      ? "meta/llama-3.3-70b-instruct"
+      : "meta-llama/llama-3.3-70b-instruct";
+
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3.3-70b-instruct",
+        model,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           ...messages.slice(-10),
